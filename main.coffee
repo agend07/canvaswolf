@@ -6,6 +6,7 @@ ctx = null
 data = null
 buf8 = null
 imageData = null
+initialFrame = true
 
 world =
     ceiling: '''
@@ -49,6 +50,13 @@ pcast = (size, res, y) -> size / (2*y - res)
 dec = (n) -> n % 1
 round3 = (n) -> Math.round(n * 1000) / 1000
 
+window.refresh = () ->
+    console.log 'here'
+    initialFrame = true
+
+settings = document.getElementById('settings')
+settings.addEventListener('change', () -> initialFrame=true)
+
 class Point
     constructor: (@x=0, @y=0) ->
     toString: -> "(#{@x}, #{@y})"
@@ -86,6 +94,7 @@ class Hit
 class Wall
     constructor: (@top, @bot, @size) ->
 
+
 project = (res, fov, corrected) ->
     size = 0.5 * fov.a.x * res / corrected.x
     top = (res-size)/2
@@ -106,6 +115,7 @@ cast = (where, direction, walling) ->
     if dec(ray.x) == 0 then tmp = dx
     else if dec(ray.y) == 0 then tmp = dy
     test = ray.add(tmp)
+
 
     hit = new Hit(test.tile(walling), ray)
     if hit.tile then hit else cast(ray, direction, walling)
@@ -133,6 +143,8 @@ class Hero
 
         if hero.velocity.mag() > hero.speed then hero.velocity = hero.velocity.unt().mul(hero.speed)
 
+        if hero.velocity.mag() < 0.005 then hero.velocity = new Point(0, 0)
+
         hero.where = hero.where.add(hero.velocity)
 
         if hero.where.tile(world.walling)
@@ -149,49 +161,136 @@ hero = new Hero(
     0)                                              # theta
 
 
+fps = 0
+setInterval (-> fpsSpan.innerHTML = round3(fps)), 200
+
+getDecimal = (point) ->
+    decX = dec(point.x)
+    if decX > 0 then return decX
+    return dec(point.y)
+
 render = (start) ->
+    lastWhere = hero.where
+    lastTheta = hero.theta
+
     hero.spin()
     hero.move()
-    camera = hero.fov.rotate(hero.theta)
 
-    for x in [0...canvasWidth]
-        column = camera.lerp(x/canvasWidth)
-        hit = cast(hero.where, column, world.walling)
-        ray = hit.where.sub(hero.where)
-        corrected = ray.turn(-hero.theta)
-        wall = project(canvasWidth, hero.fov, corrected)
-        trace = new Line(hero.where, hit.where)
+    if lastTheta != hero.theta or lastWhere.x != hero.where.x or lastWhere.y != hero.where.y or initialFrame
+        initialFrame = false
 
-        # ceiling
-        for y in [0...wall.top]
-            tile = trace.lerp(-pcast(wall.size, canvasWidth, y+0)).tile(world.ceiling)
-            draw(x, y, tile)
+        camera = hero.fov.rotate(hero.theta)
+        clear()
 
-        # wall
-        for y in [wall.top...wall.bot]
-            draw(x, y, hit.tile)
+        for x in [0...canvasWidth]
 
-        # flooring
-        for y in [wall.bot...canvasWidth]
-            tile = trace.lerp(pcast(wall.size, canvasWidth, y+1)).tile(world.floring)
-            draw(x, y, tile)
+            column = camera.lerp(x/canvasWidth)
+            hit = cast(hero.where, column, world.walling)
+            uCord = getDecimal(hit.where)
+
+            ray = hit.where.sub(hero.where)
+            corrected = ray.turn(-hero.theta)
+
+            if document.getElementById("fisheye").checked
+                corrected = corrected.add(new Point(1, 0))
+
+            wall = project(canvasWidth, hero.fov, corrected)
+            trace = new Line(hero.where, hit.where)
+
+            # ceiling
+            if document.getElementById("ceiling").checked
+                for y in [0...wall.top]
+                    tile = trace.lerp(-pcast(wall.size, canvasWidth, y+0)).tile(world.ceiling)
+                    draw(x, y, tile)
+
+            height = wall.bot - wall.top
+
+            # wall
+            for y in [wall.top...wall.bot]
+                vCord = (wall.bot-y)/height
+                draw(x, y, hit.tile)
+
+                sel = document.getElementById('wall')
+
+                switch document.getElementById('wall').selectedIndex
+                    when 0 then draw(x, y, hit.tile)
+                    when 1 then drawGradient(x, y, hit.Tile, uCord, vCord)
+                    when 2 then drawTexture(x, y, hit.Tile, uCord, vCord)
+
+            # flooring
+            if document.getElementById("floor").checked
+                for y in [wall.bot...canvasWidth]
+                    tile = trace.lerp(pcast(wall.size, canvasWidth, y+1)).tile(world.floring)
+                    draw(x, y, tile)
 
 
-    imageData.data.set(buf8)
-    ctx.putImageData(imageData, 0, 0)
+        imageData.data.set(buf8)
+        ctx.putImageData(imageData, 0, 0)
 
-    fps = 1000/(performance.now() - start)
-    fpsSpan.innerHTML = round3(fps)
+
+    stop = performance.now()
+    ms = stop - start
+    if ms < 1 then ms = 1
+    fps = 1000/(ms)
 
     requestAnimationFrame(render)
 
+textureCanvas = null
+textureCanvasWidth = null
+textureCanvasHeight = null
+textureData = null
+
+loadTexture = () ->
+    img = document.getElementById('texture')
+    textureCanvas = document.createElement('canvas')
+    textureCanvas.width = textureCanvasWidth = img.width
+    textureCanvas.height = textureCanvasHeight = img.height
+    tCtx = textureCanvas.getContext('2d')
+    tCtx.drawImage(img, 0, 0, img.width, img.height)
+
+    tmp = tCtx.getImageData(0, 0, textureCanvasWidth, textureCanvasWidth)
+    textureData = Uint32Array.from(tmp.data)
+    window.cos = textureData
 
 draw = (x, y, tile) ->
     idx = (y * canvasWidth + x)
     switch tile
-        when 1 then data[idx] = 0xFFAA0000
-        when 2 then data[idx] = 0xFF00AA00
-        when 3 then data[idx] = 0xFF0000AA
+        when 1 then data[idx] = 0xFF4A0000
+        when 2 then data[idx] = 0xFF003A00
+        when 3 then data[idx] = 0xFF00002a
+
+drawTexture = (x, y, tile, uCord, vCord) ->
+    [r, g, b, a] = getTextureColor(uCord, vCord)
+    color = 0xFF000000
+    color = color | (b << 16)
+    color = color | (g << 8)
+    color = color | (r)
+
+    idx = (y * canvasWidth + x)
+    data[idx] = color
+
+getTextureColor = (u, v) ->
+    x = Math.trunc(u*textureCanvasWidth)
+    y = Math.trunc((1-v)*textureCanvasHeight)
+    idx = (y * textureCanvasWidth + x) * 4
+    raw = textureData.slice(idx, idx+4)
+    return raw
+
+drawGradient = (x, y, tile, uCord, vCord) ->
+    red = (1 - uCord + vCord) * 128
+    green = (uCord + vCord) * 128
+    blue = 128
+
+    color = 0xFF000000
+    color = color | red
+    color = color | (green << 8)
+
+    idx = (y * canvasWidth + x)
+    data[idx] = color
+
+clear = () ->
+    for idx in [0...canvasHeight*canvasWidth]
+        data[idx] = 0xFFAAFFAA
 
 run = ->
     canvas = document.getElementById('canvas')
@@ -203,6 +302,8 @@ run = ->
     buf = new ArrayBuffer(imageData.data.length)
     buf8 = new Uint8ClampedArray(buf)
     data = new Uint32Array(buf)
+
+    loadTexture()
 
     requestAnimationFrame(render)
 run()

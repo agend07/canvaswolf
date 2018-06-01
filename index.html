@@ -19,6 +19,26 @@
         <div class="centered">
             <p>Move/rotate with arrows, strafe Z, X</p>
         </div>
+
+        <div>
+            <img id='texture' src="t64.gif" style="display:none;">
+        </div>
+
+        <div id="settings">
+            <label><input type="checkbox" id="ceiling" checked>ceiling</label>
+            <label><input type="checkbox" id="floor" checked>floor</label>
+
+            <label>
+                <select id='wall'>
+                    <option value="plain">plain</option>
+                    <option value="gradient" selected>gradient</option>
+                    <option value="texture">texture</option>
+                </select>walls
+            </label>
+
+            <label><input type="checkbox" id="fisheye">fisheye</label>
+            <br>
+        </div>
     </body>
 </html>
 
