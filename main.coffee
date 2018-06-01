@@ -255,9 +255,9 @@ loadTexture = () ->
 draw = (x, y, tile) ->
     idx = (y * canvasWidth + x)
     switch tile
-        when 1 then data[idx] = 0xFF4A0000
-        when 2 then data[idx] = 0xFF003A00
-        when 3 then data[idx] = 0xFF00002a
+        when 1 then data[idx] = 0xFFaa0000
+        when 2 then data[idx] = 0xFF00aa00
+        when 3 then data[idx] = 0xFF0000aa
 
 drawTexture = (x, y, tile, uCord, vCord) ->
     [r, g, b, a] = getTextureColor(uCord, vCord)

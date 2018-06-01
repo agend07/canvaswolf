@@ -364,11 +364,11 @@
     idx = y * canvasWidth + x;
     switch (tile) {
       case 1:
-        return data[idx] = 0xFF4A0000;
+        return data[idx] = 0xFFaa0000;
       case 2:
-        return data[idx] = 0xFF003A00;
+        return data[idx] = 0xFF00aa00;
       case 3:
-        return data[idx] = 0xFF00002a;
+        return data[idx] = 0xFF0000aa;
     }
   };
 
